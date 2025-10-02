@@ -69,6 +69,7 @@ export function VideoPlayer({ videoUrl, videoFile, onNewVideo }: VideoPlayerProp
   const [exportProgress, setExportProgress] = useState<ExportProgress[]>([])
   const [exportedBlobs, setExportedBlobs] = useState<Blob[]>([])
   const [quality, setQuality] = useState<"original" | "compressed">("original")
+  const [aspectRatio, setAspectRatio] = useState<"original" | "9:16" | "16:9">("original")
 
   useEffect(() => {
     const video = videoRef.current
@@ -428,7 +429,7 @@ export function VideoPlayer({ videoUrl, videoFile, onNewVideo }: VideoPlayerProp
         end: seg.end.time,
         name: seg.start.name || `clip_${segments.indexOf(seg) + 1}`,
       }))
-      const blobs = await splitVideo(videoFile, exportSegments, setExportProgress)
+      const blobs = await splitVideo(videoFile, exportSegments, setExportProgress, aspectRatio)
       setExportedBlobs(blobs)
     } catch (error) {
       console.error("Export error:", error)
@@ -936,6 +937,44 @@ export function VideoPlayer({ videoUrl, videoFile, onNewVideo }: VideoPlayerProp
                         <span className="text-xs text-slate-500">—</span>
                       </div>
                       <p className="text-xs text-slate-500">Faster, smaller file</p>
+                    </div>
+                  </label>
+                </RadioGroup>
+              </div>
+
+              <div>
+                <Label className="mb-3 block text-sm font-medium">Aspect Ratio</Label>
+                <RadioGroup value={aspectRatio} onValueChange={(value) => setAspectRatio(value as "original" | "9:16" | "16:9")}>
+                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50">
+                    <RadioGroupItem value="original" id="aspect-original" className="mt-0.5" />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Original</span>
+                        <span className="text-xs text-slate-500">No changes</span>
+                      </div>
+                      <p className="text-xs text-slate-500">Keep original aspect ratio</p>
+                    </div>
+                  </label>
+
+                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50">
+                    <RadioGroupItem value="9:16" id="aspect-9-16" className="mt-0.5" />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">9:16 (Vertical)</span>
+                        <span className="text-xs text-slate-500">TikTok, Reels</span>
+                      </div>
+                      <p className="text-xs text-slate-500">Portrait format for social media</p>
+                    </div>
+                  </label>
+
+                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50">
+                    <RadioGroupItem value="16:9" id="aspect-16-9" className="mt-0.5" />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">16:9 (Horizontal)</span>
+                        <span className="text-xs text-slate-500">YouTube, TV</span>
+                      </div>
+                      <p className="text-xs text-slate-500">Widescreen format</p>
                     </div>
                   </label>
                 </RadioGroup>
