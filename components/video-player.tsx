@@ -70,6 +70,7 @@ export function VideoPlayer({ videoUrl, videoFile, onNewVideo }: VideoPlayerProp
   const [exportedBlobs, setExportedBlobs] = useState<Blob[]>([])
   const [quality, setQuality] = useState<"original" | "compressed">("original")
   const [aspectRatio, setAspectRatio] = useState<"original" | "9:16" | "16:9">("original")
+  const [playbackSpeed, setPlaybackSpeed] = useState<"1.0" | "0.5" | "0.25">("1.0")
 
   useEffect(() => {
     const video = videoRef.current
@@ -429,7 +430,7 @@ export function VideoPlayer({ videoUrl, videoFile, onNewVideo }: VideoPlayerProp
         end: seg.end.time,
         name: seg.start.name || `clip_${segments.indexOf(seg) + 1}`,
       }))
-      const blobs = await splitVideo(videoFile, exportSegments, setExportProgress, aspectRatio)
+      const blobs = await splitVideo(videoFile, exportSegments, setExportProgress, aspectRatio, playbackSpeed)
       setExportedBlobs(blobs)
     } catch (error) {
       console.error("Export error:", error)
@@ -975,6 +976,44 @@ export function VideoPlayer({ videoUrl, videoFile, onNewVideo }: VideoPlayerProp
                         <span className="text-xs text-slate-500">YouTube, TV</span>
                       </div>
                       <p className="text-xs text-slate-500">Widescreen format</p>
+                    </div>
+                  </label>
+                </RadioGroup>
+              </div>
+
+              <div>
+                <Label className="mb-3 block text-sm font-medium">Playback Speed</Label>
+                <RadioGroup value={playbackSpeed} onValueChange={(value) => setPlaybackSpeed(value as "1.0" | "0.5" | "0.25")}>
+                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50">
+                    <RadioGroupItem value="1.0" id="speed-1.0" className="mt-0.5" />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Normal</span>
+                        <span className="text-xs text-slate-500">1.0x</span>
+                      </div>
+                      <p className="text-xs text-slate-500">Original playback speed</p>
+                    </div>
+                  </label>
+
+                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50">
+                    <RadioGroupItem value="0.5" id="speed-0.5" className="mt-0.5" />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Half Speed</span>
+                        <span className="text-xs text-slate-500">0.5x</span>
+                      </div>
+                      <p className="text-xs text-slate-500">Slow motion effect</p>
+                    </div>
+                  </label>
+
+                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50">
+                    <RadioGroupItem value="0.25" id="speed-0.25" className="mt-0.5" />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Quarter Speed</span>
+                        <span className="text-xs text-slate-500">0.25x</span>
+                      </div>
+                      <p className="text-xs text-slate-500">Super slow motion</p>
                     </div>
                   </label>
                 </RadioGroup>

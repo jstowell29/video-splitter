@@ -61,6 +61,7 @@ export async function splitVideo(
   segments: Array<{ start: number; end: number; name: string }>,
   onProgress: (progress: ExportProgress[]) => void,
   aspectRatio: "original" | "9:16" | "16:9" = "original",
+  playbackSpeed: "1.0" | "0.5" | "0.25" = "1.0",
 ): Promise<Blob[]> {
   const ffmpeg = await getFFmpeg()
 
@@ -93,21 +94,53 @@ export async function splitVideo(
       // Calculate duration
       const duration = segment.end - segment.start
 
-      // Build FFmpeg command based on aspect ratio
-      const ffmpegArgs = ["-i", inputFileName, "-ss", segment.start.toString(), "-t", duration.toString()]
+      const needsReencoding = aspectRatio !== "original" || playbackSpeed !== "1.0"
 
-      if (aspectRatio === "original") {
-        // Fast copy without re-encoding
-        ffmpegArgs.push("-c", "copy", "-avoid_negative_ts", "make_zero")
+      // Build FFmpeg command - order matters for proper segment extraction with filters
+      let ffmpegArgs: string[]
+
+      if (!needsReencoding) {
+        // Fast copy without re-encoding (only when original aspect ratio and normal speed)
+        // Put -ss and -t after -i for fast copy mode
+        ffmpegArgs = ["-i", inputFileName, "-ss", segment.start.toString(), "-t", duration.toString(), "-c", "copy", "-avoid_negative_ts", "make_zero"]
       } else {
-        // Need to re-encode for aspect ratio change
-        const [targetWidth, targetHeight] = aspectRatio.split(":").map(Number)
+        // For re-encoding with filters, put -ss and -to BEFORE -i
+        // This extracts the input segment first, then filters can stretch/compress time
+        ffmpegArgs = ["-ss", segment.start.toString(), "-to", segment.end.toString(), "-i", inputFileName]
+        // Need to re-encode for aspect ratio change or speed change
+        let videoFilters: string[] = []
+        let audioFilters: string[] = []
 
-        // Use pad filter to add black bars and maintain original aspect ratio
-        // Scale to fit within target dimensions, then pad to exact aspect ratio
+        // Apply speed filters
+        if (playbackSpeed !== "1.0") {
+          const speed = parseFloat(playbackSpeed)
+          // For video: setpts=PTS/speed (e.g., setpts=2*PTS for 0.5x speed = half speed)
+          videoFilters.push(`setpts=PTS/${speed}`)
+          // For audio: atempo=speed
+          audioFilters.push(`atempo=${speed}`)
+        }
+
+        // Apply aspect ratio filters
+        if (aspectRatio !== "original") {
+          const [targetWidth, targetHeight] = aspectRatio.split(":").map(Number)
+          // Use pad filter to add black bars and maintain original aspect ratio
+          videoFilters.push(
+            `scale=w='if(gt(a,${targetWidth}/${targetHeight}),min(iw,1080),min(ih*${targetWidth}/${targetHeight},1080*${targetWidth}/${targetHeight}))':h='if(gt(a,${targetWidth}/${targetHeight}),min(iw*${targetHeight}/${targetWidth},1920*${targetHeight}/${targetWidth}),min(ih,1920))':force_original_aspect_ratio=decrease,pad='max(iw,ih*${targetWidth}/${targetHeight})':'max(ih,iw*${targetHeight}/${targetWidth})':'(ow-iw)/2':'(oh-ih)/2':color=black`
+          )
+        }
+
+        // Add video filters if any
+        if (videoFilters.length > 0) {
+          ffmpegArgs.push("-vf", videoFilters.join(","))
+        }
+
+        // Add audio filters if any
+        if (audioFilters.length > 0) {
+          ffmpegArgs.push("-af", audioFilters.join(","))
+        }
+
+        // Video and audio encoding settings
         ffmpegArgs.push(
-          "-vf",
-          `scale=w='if(gt(a,${targetWidth}/${targetHeight}),min(iw,1080),min(ih*${targetWidth}/${targetHeight},1080*${targetWidth}/${targetHeight}))':h='if(gt(a,${targetWidth}/${targetHeight}),min(iw*${targetHeight}/${targetWidth},1920*${targetHeight}/${targetWidth}),min(ih,1920))':force_original_aspect_ratio=decrease,pad='max(iw,ih*${targetWidth}/${targetHeight})':'max(ih,iw*${targetHeight}/${targetWidth})':'(ow-iw)/2':'(oh-ih)/2':color=black`,
           "-c:v",
           "libx264",
           "-preset",
